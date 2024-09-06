@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, Paper, Typography } from '@mui/material';
+import { Grid, Paper, Typography, Box, Tabs, Tab } from '@mui/material';
+import axios from 'axios';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 
@@ -24,38 +25,22 @@ const options = {
   },
 };
 
-const generateRandomData = (length) => Array.from({ length }, () => Math.floor(Math.random() * 100));
-
-const initialData = {
-  labels: Array.from({ length: 60 }, (_, i) => i + 1),
-  datasets: [
-    {
-      label: '% Utilization',
-      data: generateRandomData(60),
-      borderColor: 'rgba(75, 192, 192, 1)',
-      backgroundColor: 'rgba(75, 192, 192, 0.2)',
-    },
-  ],
-};
-
 const colors = [
   'rgba(255, 99, 132, 1)',
   'rgba(54, 162, 235, 1)',
   'rgba(255, 206, 86, 1)',
   'rgba(75, 192, 192, 1)',
   'rgba(153, 102, 255, 1)',
-  'rgba(255, 159, 64, 1)',
 ];
 
 const Dashboard = () => {
-  const [cpuData, setCpuData] = useState(initialData);
   const [swData, setSwData] = useState(
-    Array.from({ length: 6 }, (_, i) => ({
+    Array.from({ length: 5 }, (_, i) => ({
       labels: Array.from({ length: 60 }, (_, j) => j + 1),
       datasets: [
         {
           label: `SW${i + 1}`,
-          data: generateRandomData(60),
+          data: Array(60).fill(0),
           borderColor: colors[i % colors.length],
           backgroundColor: 'rgba(0, 0, 0, 0)', // Set background color to transparent
         },
@@ -63,151 +48,158 @@ const Dashboard = () => {
     }))
   );
 
-  const [dynamicData, setDynamicData] = useState({
-    utilization: 9,
-    speed: 1.58,
-    processes: 234,
-    threads: 2904,
-    handles: 102994,
-    uptime: '8:23:00:08',
-  });
+  const [googleSheetData, setGoogleSheetData] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedTab, setSelectedTab] = useState(0); // Tab state for left-side vertical tabs
 
+  const sheetId = '1PNXuAEv4e57U2JlrMRbWFPjBAX661xJfGcvFFRWvBug';
+  const gid = '0';
+
+  // Fetch Google Sheets data
   useEffect(() => {
-    const interval = setInterval(() => {
-      const newData = Math.floor(Math.random() * 100);
+    const fetchGoogleSheetData = async () => {
+      try {
+        const response = await axios.get(
+          `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=${gid}`
+        );
+        const jsonData = JSON.parse(response.data.substring(47).slice(0, -2));
+        const rows = jsonData.table.rows.map(row => row.c.map(cell => (cell ? cell.v : '')));
+        setGoogleSheetData(rows);
+      } catch (error) {
+        console.error('Error fetching Google Sheet data:', error);
+      }
+    };
 
-      // Update CPU data
-      setCpuData((prevData) => {
-        const updatedData = [...prevData.datasets[0].data.slice(1), newData];
-        return {
-          labels: Array.from({ length: 60 }, (_, i) => i + 1),
-          datasets: [
-            {
-              label: '% Utilization',
-              data: updatedData,
-              borderColor: 'rgba(75, 192, 192, 1)',
-              backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            },
-          ],
-        };
-      });
-
-      // Update switch data
-      setSwData((prevData) =>
-        prevData.map((sw, index) => ({
-          ...sw,
-          datasets: [
-            {
-              ...sw.datasets[0],
-              data: [...sw.datasets[0].data.slice(1), newData],
-            },
-          ],
-        }))
-      );
-
-      // Update dynamic data
-      setDynamicData((prevData) => ({
-        ...prevData,
-        utilization: Math.floor(Math.random() * 100),
-        speed: (Math.random() * 2 + 1).toFixed(2),
-        processes: Math.floor(Math.random() * 1000),
-        threads: Math.floor(Math.random() * 5000),
-        handles: Math.floor(Math.random() * 200000),
-        uptime: `${Math.floor(Math.random() * 24)}:${Math.floor(Math.random() * 60)}:${Math.floor(Math.random() * 60)}:${Math.floor(Math.random() * 60)}`,
-      }));
-    }, 1000);
-
-    return () => clearInterval(interval);
+    fetchGoogleSheetData();
   }, []);
 
+  useEffect(() => {
+    if (googleSheetData.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentIndex(prevIndex => (prevIndex + 1) % (googleSheetData.length - 1));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [googleSheetData]);
+
+  if (googleSheetData.length === 0) {
+    return <div>Loading...</div>;
+  }
+
+  // Map the dynamic data from the Google Sheet
+  const dynamicData = {
+    dateAndTime: googleSheetData[currentIndex + 1][0],
+    datapathId: googleSheetData[currentIndex + 1][1],
+    portNo: googleSheetData[currentIndex + 1][2],
+    rxPkts: googleSheetData[currentIndex + 1][3],
+    rxBytes: googleSheetData[currentIndex + 1][4],
+    rxError: googleSheetData[currentIndex + 1][5],
+    txPkts: googleSheetData[currentIndex + 1][6],
+    txBytes: googleSheetData[currentIndex + 1][7],
+    txError: googleSheetData[currentIndex + 1][8],
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setSelectedTab(newValue);
+  };
+
+  const tabItems = [
+    'Dashboard',
+    'Settings',
+    'Statistics',
+    'Logs',
+    'About',
+  ];
+
   return (
-    <div style={{ padding: 24, display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <div style={{ width: '20%', marginRight: '2%', height: '100%', overflowY: 'scroll' }}>
-        {swData.map((sw, num) => (
-          <Paper
-            key={num}
-            style={{
-              padding: 16,
-              marginBottom: 16,
-              height: 150,
-              transition: 'transform 0.3s',
-              zIndex: 1,
-              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-          >
-            <Typography variant="h6">{`SW${num + 1}`}</Typography>
-            <Line options={options} data={sw} />
-          </Paper>
-        ))}
-      </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', height: '100vh' }}>
+      {/* Left-side vertical tab bar */}
+      <Paper
+        style={{
+          width: 240,
+          height: '100%',
+          backgroundColor: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+        }}
+        elevation={3} // Adding elevation for modern look
+      >
+        <Tabs
+          orientation="vertical"
+          value={selectedTab}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+          style={{
+            borderRight: '1px solid #ddd',
+            padding: '8px 0',
+          }}
+        >
+          {tabItems.map((item, index) => (
+            <Tab
+              label={item}
+              key={index}
+              style={{
+                textTransform: 'none',
+                padding: '12px 16px',
+                marginBottom: '8px',
+                backgroundColor: selectedTab === index ? '#f0f0f0' : '#fff',
+                boxShadow: selectedTab === index ? '0px 4px 10px rgba(0, 0, 0, 0.1)' : 'none',
+                borderRadius: '8px',
+                transition: 'background-color 0.3s ease',
+              }}
+            />
+          ))}
+        </Tabs>
+      </Paper>
+
+      {/* Main content area */}
+      <div style={{ flex: 1, padding: 24 }}>
         <Paper style={{ padding: 16, height: '60%', width: '100%' }}>
           <Typography variant="h4" gutterBottom>Current CPU Load</Typography>
-          <Line options={options} data={cpuData} />
+          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+            <img src="https://www.example.com/image" alt="Middle Chart" style={{ maxWidth: '100%', maxHeight: '100%' }} />
+          </Box>
         </Paper>
+
         <div style={{ padding: 16, marginTop: 16 }}>
           <Grid container spacing={2}>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Utilization</Typography>
-              <Typography variant="body1">{dynamicData.utilization}%</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Speed</Typography>
-              <Typography variant="body1">{dynamicData.speed} GHz</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Processes</Typography>
-              <Typography variant="body1">{dynamicData.processes}</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Threads</Typography>
-              <Typography variant="body1">{dynamicData.threads}</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Handles</Typography>
-              <Typography variant="body1">{dynamicData.handles}</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Up time</Typography>
-              <Typography variant="body1">{dynamicData.uptime}</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Base speed</Typography>
-              <Typography variant="body1">1.80 GHz</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Sockets</Typography>
-              <Typography variant="body1">1</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Cores</Typography>
-              <Typography variant="body1">4</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Logical processors</Typography>
-              <Typography variant="body1">8</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>Virtualization</Typography>
-              <Typography variant="body1">Enabled</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>L1 cache</Typography>
-              <Typography variant="body1">256 KB</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>L2 cache</Typography>
-              <Typography variant="body1">1.0 MB</Typography>
-            </Grid>
-            <Grid item xs={3}>
-              <Typography variant="subtitle2" style={{ color: 'gray' }}>L3 cache</Typography>
-              <Typography variant="body1">6.0 MB</Typography>
-            </Grid>
+            {[
+              { label: 'Date and Time', value: dynamicData.dateAndTime },
+              { label: 'Datapath ID', value: dynamicData.datapathId },
+              { label: 'Port No', value: dynamicData.portNo },
+              { label: 'Rx Packets', value: dynamicData.rxPkts },
+              { label: 'Rx Bytes', value: dynamicData.rxBytes },
+              { label: 'Rx Errors', value: dynamicData.rxError },
+              { label: 'Tx Packets', value: dynamicData.txPkts },
+              { label: 'Tx Bytes', value: dynamicData.txBytes },
+              { label: 'Tx Errors', value: dynamicData.txError },
+            ].map(({ label, value }) => (
+              <Grid item xs={4} key={label}>
+                <Paper style={{ padding: 8 }}>
+                  <Typography variant="body1" style={{ fontSize: '0.9rem', color: '#666' }}>
+                    {label}
+                  </Typography>
+                  <Typography variant="h6" style={{ fontSize: '1.2rem', fontWeight: 600 }}>
+                    {value}
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
           </Grid>
         </div>
       </div>
+
+      {/* Right-side options area */}
+      <Paper style={{ width: 240, padding: 16, height: '100%', backgroundColor: '#f5f5f5' }}>
+        <Typography variant="h6" gutterBottom>Options</Typography>
+        {selectedTab === 0 && <Typography variant="body1">Dashboard options</Typography>}
+        {selectedTab === 1 && <Typography variant="body1">Settings options</Typography>}
+        {selectedTab === 2 && <Typography variant="body1">Statistics options</Typography>}
+        {selectedTab === 3 && <Typography variant="body1">Logs options</Typography>}
+        {selectedTab === 4 && <Typography variant="body1">About options</Typography>}
+      </Paper>
     </div>
   );
 };

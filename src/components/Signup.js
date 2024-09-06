@@ -1,16 +1,37 @@
-import React from 'react';
-import { Box, Button, TextField, Typography, MenuItem, Select, InputLabel, FormControl, Link } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Button, TextField, Typography, MenuItem, Select, FormControl, Link } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import PersonIcon from '@mui/icons-material/Person';
 import { Link as RouterLink } from 'react-router-dom';
+import axios from 'axios';
 
 const SignupPage = () => {
-  const [role, setRole] = React.useState('');
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    role: '',
+    email: '',
+    password: '',
+  });
 
-  const handleRoleChange = (event) => {
-    setRole(event.target.value);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('http://localhost:5000/signup', formData);
+      console.log('User registered:', response.data);
+    } catch (error) {
+      console.error('There was an error registering the user:', error);
+    }
   };
 
   return (
@@ -18,7 +39,7 @@ const SignupPage = () => {
       sx={{
         display: 'flex',
         height: '100vh',
-        backgroundColor: '#e0f7fa', // Light blue background
+        backgroundColor: '#e0f7fa',
       }}
     >
       <Box
@@ -27,7 +48,7 @@ const SignupPage = () => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: '#e0f7fa', // Light blue background
+          backgroundColor: '#e0f7fa',
           borderRadius: '15px 0 0 15px',
           padding: 4,
         }}
@@ -48,6 +69,8 @@ const SignupPage = () => {
           boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
           borderRadius: '0 15px 15px 0',
         }}
+        component="form"
+        onSubmit={handleSubmit}
       >
         <PersonIcon sx={{ fontSize: 80, color: '#00bcd4' }} />
         <Box
@@ -61,6 +84,9 @@ const SignupPage = () => {
             variant="outlined"
             margin="normal"
             fullWidth
+            name="firstName"
+            value={formData.firstName}
+            onChange={handleChange}
             placeholder="First Name"
             InputProps={{
               startAdornment: <PersonIcon sx={{ color: '#00bcd4', marginRight: 1 }} />,
@@ -75,6 +101,9 @@ const SignupPage = () => {
             variant="outlined"
             margin="normal"
             fullWidth
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleChange}
             placeholder="Last Name"
             InputProps={{
               startAdornment: <PersonIcon sx={{ color: '#00bcd4', marginRight: 1 }} />,
@@ -96,14 +125,14 @@ const SignupPage = () => {
             marginBottom: 2,
           }}
         >
-          <InputLabel>Role</InputLabel>
           <Select
-            value={role}
-            onChange={handleRoleChange}
-            label="Role"
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            displayEmpty
             startAdornment={<AccountCircleIcon sx={{ color: '#00bcd4', marginRight: 1 }} />}
           >
-            <MenuItem value=""><em>None</em></MenuItem>
+            <MenuItem value=""><em>Role</em></MenuItem>
             <MenuItem value={'Admin'}>Admin</MenuItem>
             <MenuItem value={'User'}>User</MenuItem>
             <MenuItem value={'Viewer'}>Viewer</MenuItem>
@@ -113,6 +142,9 @@ const SignupPage = () => {
           variant="outlined"
           margin="normal"
           fullWidth
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
           placeholder="Email"
           InputProps={{
             startAdornment: <EmailIcon sx={{ color: '#00bcd4', marginRight: 1 }} />,
@@ -126,8 +158,11 @@ const SignupPage = () => {
           variant="outlined"
           margin="normal"
           fullWidth
-          placeholder="Password"
           type="password"
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          placeholder="Password"
           InputProps={{
             startAdornment: <LockIcon sx={{ color: '#00bcd4', marginRight: 1 }} />,
           }}
@@ -146,6 +181,7 @@ const SignupPage = () => {
             borderRadius: 2,
             marginTop: 2,
           }}
+          type="submit"
         >
           Signup
         </Button>
